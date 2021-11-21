@@ -48,10 +48,13 @@ def get_api_answer(current_timestamp):
     params = {"from_date": timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-        response.raise_for_status()
+        # response.raise_for_status()
     except Exception as err:
         error_description = str(ResponseException(err))
         return {"error": error_description}
+    if response.status_code != 200:
+        error_description = f"Ошибка, Код ответа: {response.status_code}"
+        raise Exception(error_description)
     return response.json()
 
 
@@ -64,17 +67,17 @@ def error_handler(bot, err):
     logger.error(err)
 
 
-def check_response(bot, response):
+def check_response(response):
     """Проверка ответа API на корректность."""
     if "error" in response:
         err = response["error"]
-        error_handler(bot, err)
-    elif "homeworks" not in response:
-        err = "В ответе от API отсутствует homeworks"
-        error_handler(bot, err)
+        raise Exception(err)
+    # elif "homeworks" not in response:
+    #     err = "В ответе от API отсутствует homeworks"
+    #     raise KeyError(err)
     elif not isinstance(response["homeworks"], list):
         err = "Неверный тип данных у элемента homeworks"
-        error_handler(bot, err)
+        raise ValueError(err)
     return response.get("homeworks")
 
 
@@ -105,7 +108,7 @@ def main():
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            homeworks = check_response(bot, response)
+            homeworks = check_response(response)
             if len(homeworks) > 0:
                 current_homework = homeworks[0]
                 lesson_name = current_homework["lesson_name"]
