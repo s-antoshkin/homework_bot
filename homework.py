@@ -77,7 +77,7 @@ def check_response(response):
     #     raise KeyError(err)
     elif not isinstance(response["homeworks"], list):
         err = "Неверный тип данных у элемента homeworks"
-        raise ValueError(err)
+        raise TypeError(err)
     return response.get("homeworks")
 
 

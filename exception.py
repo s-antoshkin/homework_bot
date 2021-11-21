@@ -15,6 +15,6 @@ class ResponseException(Exception):
         self.error = error.__class__.__name__
 
     def __str__(self):
-        """Строковое представление исключения."""
+        """Строковое представление исключения с описанием."""
         description = ResponseException.exceptions[self.error]
         return f"{description} - {super().__str__()}"
