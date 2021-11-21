@@ -69,12 +69,15 @@ def error_handler(bot, err):
 
 def check_response(response):
     """Проверка ответа API на корректность."""
-    if "error" in response:
+    if not isinstance(response, dict):
+        err = "Неверный тип данных у элемента response"
+        raise TypeError(err)
+    elif "error" in response.keys():
         err = response["error"]
         raise Exception(err)
-    # elif "homeworks" not in response:
-    #     err = "В ответе от API отсутствует homeworks"
-    #     raise KeyError(err)
+    elif "homeworks" not in response.keys():
+        err = "В ответе от API отсутствует homeworks"
+        raise KeyError(err)
     elif not isinstance(response["homeworks"], list):
         err = "Неверный тип данных у элемента homeworks"
         raise TypeError(err)
