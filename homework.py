@@ -3,10 +3,11 @@ import os
 import time
 
 import requests
+from requests.exceptions import RequestException
 import telegram
 from dotenv import load_dotenv
 
-from exception import ResponseException
+from exception import ResponsePracticumException
 
 load_dotenv()
 
@@ -30,16 +31,15 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-EXCEPTION_LIST = set()
-
 
 def send_message(bot, message):
     """Отправка сообщения в чат."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logger.info(f"Бот отправил сообщение: {message}")
-    except Exception as e:
+    except telegram.error.TelegramError as e:
         logger.critical(f"Не удалось отправить сообщение - {e}")
+    else:
+        logger.info(f"Бот отправил сообщение: {message}")
 
 
 def get_api_answer(current_timestamp):
@@ -49,22 +49,12 @@ def get_api_answer(current_timestamp):
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
         # response.raise_for_status()
-    except Exception as err:
-        error_description = str(ResponseException(err))
-        return {"error": error_description}
+    except RequestException as err:
+        raise ResponsePracticumException(err)
     if response.status_code != 200:
         error_description = f"Ошибка, Код ответа: {response.status_code}"
-        raise Exception(error_description)
+        raise ResponsePracticumException(error_description)
     return response.json()
-
-
-def error_handler(bot, err):
-    """Обработка ошибок."""
-    global EXCEPTION_LIST
-    if err not in EXCEPTION_LIST:
-        EXCEPTION_LIST.add(err)
-        send_message(bot, err)
-    logger.error(err)
 
 
 def check_response(response):
@@ -72,15 +62,12 @@ def check_response(response):
     if not isinstance(response, dict):
         err = "Неверный тип данных у элемента response"
         raise TypeError(err)
-    elif "error" in response.keys():
-        err = response["error"]
-        raise Exception(err)
-    elif "homeworks" not in response.keys():
-        err = "В ответе от API отсутствует homeworks"
-        raise KeyError(err)
+    elif "homeworks" not in response:
+        err = "В ответе от API отсутствует ключ homeworks"
+        raise ResponsePracticumException(err)
     elif not isinstance(response["homeworks"], list):
         err = "Неверный тип данных у элемента homeworks"
-        raise TypeError(err)
+        raise ResponsePracticumException(err)
     return response.get("homeworks")
 
 
@@ -108,6 +95,7 @@ def main():
     """Основная логика работы бота."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
+    last_error = ""
     while True:
         try:
             response = get_api_answer(current_timestamp)
@@ -116,16 +104,16 @@ def main():
                 current_homework = homeworks[0]
                 lesson_name = current_homework["lesson_name"]
                 hw_status = parse_status(current_homework)
-                send_message(
-                    bot,
-                    f"{lesson_name}. {hw_status}"
-                )
+                send_message(bot, f"{lesson_name}. {hw_status}")
             else:
                 logger.debug("Новые статусы отсутствуют.")
             current_timestamp = response.get("current_date")
         except Exception as err:
             message = f"Сбой в работе программы: {err}"
-            error_handler(bot, message)
+            if str(err) != str(last_error):
+                send_message(bot, message)
+                last_error = err
+            logger.error(message)
         time.sleep(RETRY_TIME)
 
 
