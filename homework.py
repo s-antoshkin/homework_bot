@@ -108,6 +108,7 @@ def main():
             else:
                 logger.debug("Новые статусы отсутствуют.")
             current_timestamp = response.get("current_date")
+            last_error = ""
         except Exception as err:
             message = f"Сбой в работе программы: {err}"
             if str(err) != str(last_error):
